@@ -1,0 +1,74 @@
+import pandas as pd
+import seaborn as sns
+import matplotlib.pyplot as plt
+
+# Unique values in Maintenance Activities:
+df['MAINTENANCE_ACTIVITY_TYPE'].value_counts()
+
+# Filter for unplanned maintenance
+unplanned_df = df[df['MAINTENANCE_ACTIVITY_TYPE'] == 'Unplanned']
+
+# Group by EQUIP_CAT_DESC, PLANT_ID, and PRODUCTION_LOCATION to retain facility and plant info
+equipment_failures = unplanned_df.groupby(['EQUIP_CAT_DESC', 'PLANT_ID', 'PRODUCTION_LOCATION']).size().reset_index(name='Unplanned_Failures')
+
+# Total maintenance activities by equipment category, plant, and facility
+total_maintenance = df.groupby(['EQUIP_CAT_DESC', 'PLANT_ID', 'PRODUCTION_LOCATION']).size().reset_index(name='Total_Maintenance')
+
+# Merge the two DataFrames to calculate failure rates
+failure_rates = pd.merge(equipment_failures, total_maintenance, on=['EQUIP_CAT_DESC', 'PLANT_ID', 'PRODUCTION_LOCATION'])
+
+# Calculate the failure rate
+failure_rates['Failure_Rate'] = failure_rates['Unplanned_Failures'] / failure_rates['Total_Maintenance']
+
+# Ensure equipment category descriptions are strings for proper labeling
+failure_rates['EQUIP_CAT_DESC'] = failure_rates['EQUIP_CAT_DESC'].astype(str)
+
+# --- First Plot: Failure Rate by Equipment Category ---
+
+plt.figure(figsize=(12,8))
+
+# Use seaborn scatterplot and color by facility (PRODUCTION_LOCATION)
+sns.scatterplot(data=failure_rates, x='EQUIP_CAT_DESC', y='Failure_Rate', hue='PRODUCTION_LOCATION', palette='Set2', s=100)
+
+# Rotate the x-axis labels for better readability
+plt.xticks(rotation=90)
+
+# Set the title and labels
+plt.title('Unplanned Maintenance Failure Rates by Equipment Category (Colored by Facility)')
+plt.xlabel('Equipment Category')
+plt.ylabel('Failure Rate (%)')
+
+# Add percentage labels to the Y-axis
+plt.gca().yaxis.set_major_formatter(plt.FuncFormatter(lambda x, _: '{:.0%}'.format(x)))
+
+# Add a legend for the facilities
+plt.legend(title="Facility")
+
+# Ensure everything fits nicely
+plt.tight_layout()
+plt.show()
+
+# --- Second Plot: Median Failure Rate by PLANT_ID ---
+
+# Group by PLANT_ID to calculate median failure rates
+plant_failure_rates = failure_rates.groupby('PLANT_ID')['Failure_Rate'].median().reset_index()
+
+# Plot median failure rates by PLANT_ID
+plt.figure(figsize=(10,6))
+
+sns.barplot(data=plant_failure_rates, x='PLANT_ID', y='Failure_Rate', palette='Set2')
+
+# Set the title and labels
+plt.title('Median Failure Rate by Plant')
+plt.xlabel('Plant ID')
+plt.ylabel('Median Failure Rate (%)')
+
+# Add percentage labels to the Y-axis
+plt.gca().yaxis.set_major_formatter(plt.FuncFormatter(lambda x, _: '{:.0%}'.format(x)))
+
+# Add percentage labels to the bars
+for index, row in plant_failure_rates.iterrows():
+    plt.text(index, row.Failure_Rate + 0.005, '{:.1%}'.format(row.Failure_Rate), color='black', ha="center")
+
+plt.tight_layout()
+plt.show()
